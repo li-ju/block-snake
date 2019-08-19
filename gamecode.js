@@ -39,6 +39,11 @@ function updateSnek()
                 snek[i] = snek[i + 1];
         }
         snek[snek.length-1] = currentPosition;
+        if(board[currentPosition] == -1)
+        {
+            snekMaxLength++;
+            AddFood();
+        }
 
     }
 
@@ -131,7 +136,7 @@ function setup(){
    /*  var light = new THREE.PointLight(0xFFFFFF);
     light.position.set(-10, 15, 50);
     scene.add(light); */
-
+    AddFood();
     elapsedTime = 0;
 }
 
@@ -178,6 +183,17 @@ function animate(){
     render();
 }
 
+function AddFood()
+{
+    var rand = (Math.random() * positions) >> 0;
+    while(snek.includes(rand,0))
+    {
+        rand = (Math.random() * positions) >> 0
+    }
+    board[rand] = -1;
+    bricks[rand].material = terrainMaterial1;
+}
+
 function OnKeyIsDown(key)
 {
     switch(key.keyCode)
@@ -205,9 +221,6 @@ function OnKeyIsDown(key)
                 else currentPosition = currentPosition + nrOfRows;
                 currentdirection = 3;
                 updateSnek();
-            break;
-        case 32:
-            snekMaxLength++;
             break;
         default:
             break;
