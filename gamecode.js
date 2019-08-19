@@ -1,7 +1,6 @@
 document.onkeydown = OnKeyIsDown;
 
 var renderer, scene, camera;
-var cubes;
 var elapsedTime;
 
 var board;
@@ -24,10 +23,16 @@ animate();
 function updateSnek()
 {
     if(snek.length < snekMaxLength)
-    {snek.push(currentPosition);}
+    {
+        snek.push(currentPosition);
+    }
     else
     {
-        board[snek[0]] = 0;
+        var value = snek[0];
+        board[value] = 0;
+        bricks[value].material = terrainMaterial2;
+        bricks[value].geometry = new THREE.BoxGeometry(10,1,10);
+        bricks[value].position.y = 0;
 
         for(var i = 0; i < snek.length-1; i++)
         {
@@ -40,21 +45,9 @@ function updateSnek()
     for(var i = 0; i < snek.length; i++)
     {
         board[snek[i]] = 1+i;
-    }
-    for(var i = 0; i < positions; i++)
-    {
-        if (board[i] > 1)
-        {
-            bricks[i].material = terrainMaterial1;
-            bricks[i].geometry = new THREE.BoxGeometry(10,board[i],10);
-            bricks[i].position.y = board[i]/2;
-        }
-        else
-        {
-            bricks[i].material = terrainMaterial2;
-            bricks[i].geometry = new THREE.BoxGeometry(10,1,10);
-            bricks[i].position.y = 0;
-        }
+        bricks[snek[i]].material = terrainMaterial1;
+        bricks[snek[i]].geometry = new THREE.BoxGeometry(10,1+i,10);
+        bricks[snek[i]].position.y = 1+i/2;
     }
 }
 
@@ -69,40 +62,18 @@ function setupBoard()
     for(var i = 1; i < nrOfRows*nrOfColumns; ++i)
     {
         board.push(0);
-        /* var row = new Array();
-        for(var j = 0; j < nrOfColumns; ++j)
-        { 
-            row.push(0);
-        }
-        board.push(row); */
     }
-}
-
-function setupCubes()
-{
-    cubes = new Array();
-    var i;
-    for(i = -5; i < 5; i++)
-    {
-        var cubeGeometry = new THREE.BoxGeometry(10,10,10);// new THREE.PlaneGeometry(50,50,1,1);
-        // terrainGeometry.rotateX(-1.5);
-        var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xfefefe});
-        // terrain.computeFlatVertexNormals();
-        var cube = new THREE.Mesh(cubeGeometry,cubeMaterial);
-        cube.position.x += i * 11;
-        cubes.push(cube);
-    }
-     
 }
 
 function setup(){
-    var width = window.innerWidth;
-    var height = window.innerHeight;
+    var width = window.innerWidth*0.99;
+    var height = window.innerHeight*0.99;
     var aspect = width/height;
     
     setupBoard();
     snekMaxLength = 3;
     snek = new Array();
+
     // Renderer
     renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
     renderer.setSize(width, height);
@@ -111,9 +82,6 @@ function setup(){
 
     //Scene
     scene = new THREE.Scene();
-
-    // Fog
-    //scene.fog = new THREE.FogExp2( 0xf0fff0, 0.14 );
 
     // Camera
     camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
@@ -151,21 +119,6 @@ function setup(){
         scene.add(terrain);
     } 
     
-    
-   // setupCubes();
-
-    /* var i = 0;
-    for(i = 0; i < cubes.length; i++)
-    {
-        scene.add(cubes[i]);
-    } */
-    
-    // PlayerChar
-    var playerGeometry = new THREE.DodecahedronGeometry(7,1);
-    playerGeometry.computeFlatVertexNormals();
-    var playerMaterial = new THREE.MeshLambertMaterial({color: 0x0095DD});// = new THREE.StandarMaterial({ color: 0xe5f2f2, shading:THREE.FlatShading});
-    player = new THREE.Mesh(playerGeometry,playerMaterial);
-    //scene.add(player);
 
     // LIGHT
     var hemisphereLight = new THREE.HemisphereLight(0xfffafa,0x000000, 0.9);
@@ -185,8 +138,9 @@ function setup(){
 function update(){
 
     elapsedTime += 1;
-    if (elapsedTime > 5)
+    if (elapsedTime > 10)
     {
+        elapsedTime = 0;
         switch(currentdirection)
         {
             
@@ -212,12 +166,6 @@ function update(){
                 break;
         }
     }
-    
-   /*  for(i = 0; i < cubes.length; i++)
-    {
-        cubes[i].position.y = (-10.0) * Math.sin(elapsedTime*i*0.5);
-        cubes[i].rotation.x = 5 * Math.sin(elapsedTime);
-    } */
 }
 
 function render(){
@@ -233,8 +181,7 @@ function animate(){
 function OnKeyIsDown(key)
 {
     switch(key.keyCode)
-    {
-        
+    { 
         case 37:
                 if(currentPosition%nrOfColumns == 0) break;
                 else currentPosition--;
