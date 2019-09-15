@@ -1,1 +1,1 @@
-# block-snake
+# ghost

@@ -1,179 +1,163 @@
 document.onkeydown = OnKeyIsDown;
-
 var renderer, scene, camera;
-var elapsedTime;
 
-var board;
-var positions;
-var nrOfRows;
-var nrOfColumns;
+var columns, rows;
+var scale = 20;
+var size = 10;
 
-var bricks;
-var terrainMaterial1;
-var terrainMaterial2;
-
-var currentPosition = 0;
-var snek;
-var snekMaxLength;
-var currentdirection = 2;
+var geometry;
+var material;
+var terrain;
+var bioColors = false;
 
 setup();
 animate();
 
-function updateSnek()
+function generateTerrain()
 {
-    if(snek.length < snekMaxLength)
-    {
-        snek.push(currentPosition);
-    }
-    else
-    {
-        var value = snek[0];
-        board[value] = 0;
-        bricks[value].material = terrainMaterial2;
-        bricks[value].geometry = new THREE.BoxGeometry(10,1,10);
-        bricks[value].position.y = 0;
+    // Geometry
+    columns = 30 + size;
+    rows = 30 + size;
+    scale = 50 + size;
+    var halfScale = scale /2;
+    var segSize = scale /columns;
 
-        for(var i = 0; i < snek.length-1; i++)
+    noise.seed(Math.random());
+
+    geometry = new THREE.BufferGeometry();
+    var indices = [];
+    var vertices = [];
+    var normals = [];
+    var colors = [];
+
+    // generate vertices (with normals and color)
+    for(var y = 0; y <= rows; y++)
+    {
+        var vY = (y * segSize) - halfScale;
+        for(var x = 0; x <= columns; x++)
         {
-                snek[i] = snek[i + 1];
-        }
-        snek[snek.length-1] = currentPosition;
-        if(board[currentPosition] == -1)
-        {
-            snekMaxLength++;
-            AddFood();
-        }
+            var vX = (x * segSize) - halfScale;
+            //var vZ = 4.0 * noise.simplex2(x*0.1,y*0.1);
+            var vZ = 20 *  noise.perlin2(x*0.1,y*0.1);
+            vertices.push(vX,-vY,vZ);
+            normals.push(0,0,1);
+            
+            var r = 1; //(vX / scale) + 0.5;
+            var g = 0; //(vY / scale) + 0.5;
+            var b = 1;
 
+            if(bioColors)
+            {
+                if(vZ < -1.0)
+                {
+                    r = 0.494; 
+                    g = 0.650;
+                    b = 0.349;
+                    
+                }
+                else if(vZ < 0.6)
+                {
+                    r = 0.394; 
+                    g = 0.550;
+                    b = 0.249;
+                
+                }
+                else if(vZ < 7.0)
+                {
+                    r = 0.470;
+                    g = 0.427;
+                    b = 0.407;
+                }
+                else
+                {
+                    r = 0.803;
+                    g = 0.8;
+                    b = 0.796;
+                }
+            }
+            else
+            {
+                r = ( vZ / scale) + 0.3;
+                g = ( vZ / scale) + 0.3;
+                b = ( vZ / scale) + 0.3;
+            }
+           colors.push(r,g,b);
+        }
     }
-
-    for(var i = 0; i < snek.length; i++)
+    // Generate indices
+    for(var y = 0; y < rows; y++)
     {
-        board[snek[i]] = 1+i;
-        bricks[snek[i]].material = terrainMaterial1;
-        bricks[snek[i]].geometry = new THREE.BoxGeometry(10,1+i,10);
-        bricks[snek[i]].position.y = 1+i/2;
+        for(var x = 0; x < columns; x++)
+        {
+            var a = y * (rows + 1) + (x + 1);
+            var b = y * (rows + 1) + x;
+            var c = (y + 1) * (rows + 1) + x;
+            var d = (y + 1) * (rows + 1) + (x + 1);
+
+            // Generate 2 faces (triangles)
+            indices.push(a,b,d);
+            indices.push(b,c,d);
+        }
     }
+    geometry.setIndex(indices);
+    geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ));
+    geometry.addAttribute( 'normal', new THREE.Float32BufferAttribute( normals, 3 ));
+    geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ));
+
+    material = new THREE.MeshPhongMaterial( {
+        side: THREE.DoubleSide,
+        vertexColors: THREE.VertexColors
+        } );
+
+    terrain = new THREE.Mesh( geometry, material );
+    scene.add(terrain);
+
+    terrain.rotateX(-Math.PI/3);
 }
 
-function setupBoard()
+function regenerateTerrain()
 {
-    board = new Array();
-    
-    nrOfRows = 10;
-    nrOfColumns = 10;
-    positions = nrOfColumns * nrOfRows;
-    board.push(1);
-    for(var i = 1; i < nrOfRows*nrOfColumns; ++i)
-    {
-        board.push(0);
-    }
+    geometry.dispose();
+    material.dispose();
+    scene.remove(terrain);
+    generateTerrain();
 }
 
 function setup(){
     var width = window.innerWidth*0.99;
     var height = window.innerHeight*0.99;
     var aspect = width/height;
-    
-    setupBoard();
-    snekMaxLength = 3;
-    snek = new Array();
+    columns = size/scale;
+    rows = size/scale;
 
     // Renderer
     renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
     renderer.setSize(width, height);
-    renderer.setClearColor(0xbebebe, 1);
+    renderer.setClearColor(0x000000, 1);
     document.body.appendChild(renderer.domElement);
 
-    //Scene
+    // Scene
     scene = new THREE.Scene();
 
+    // Light
+    var light = new THREE.HemisphereLight();
+    scene.add( light );
+
     // Camera
-    camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
-    camera.position.z = 140;
-    camera.position.y = 50;
-    camera.position.x = nrOfColumns*10/2;
-    camera.rotation.x = -0.7;
+    camera = new THREE.PerspectiveCamera(27, aspect, 1, 3500);
+    camera.position.z = 100;
     scene.add(camera);
 
-    // SHAPES
-    var terrainGeometry = new THREE.BoxGeometry(10,1,10);// new THREE.PlaneGeometry(50,50,1,1);
-   // terrainGeometry.rotateX(-1.5);
-    terrainMaterial1 = new THREE.MeshLambertMaterial({color: 0x3e3e3e});
-    terrainMaterial2 = new THREE.MeshLambertMaterial({color: 0xffffff});
-   // terrain.computeFlatVertexNormals();
-   // terrain = new THREE.Mesh(terrainGeometry,terrainMaterial);
-   var row = 0;
-   var column;
-   bricks = new Array();
-    for(var i = 0; i < positions; i++)
-    {
-        if(i % nrOfRows == 0){row++; column = 0;}
-        if (board[i] > 1)
-        {
-            terrain = new THREE.Mesh(terrainGeometry,terrainMaterial1);
-        }
-        else
-        {
-            terrain = new THREE.Mesh(terrainGeometry,terrainMaterial2);
-        }
-        terrain.position.x = column * 11;
-        terrain.position.z = row * 11;
-        column++;
-        bricks.push(terrain);
-        scene.add(terrain);
-    } 
-    
-
-    // LIGHT
-    var hemisphereLight = new THREE.HemisphereLight(0xfffafa,0x000000, 0.9);
-    scene.add(hemisphereLight);
-    var sun = new THREE.DirectionalLight(0xcdc1c5, 0.9);
-    sun.position.set(12,6,-7);
-    sun.castShadow = true;
-    scene.add(sun);
-    
-   /*  var light = new THREE.PointLight(0xFFFFFF);
-    light.position.set(-10, 15, 50);
-    scene.add(light); */
-    AddFood();
-    elapsedTime = 0;
+    generateTerrain();
 }
 
 function update(){
 
-    elapsedTime += 1;
-    if (elapsedTime > 10)
-    {
-        elapsedTime = 0;
-        switch(currentdirection)
-        {
-            
-            case 0: // left
-                    if(currentPosition%nrOfColumns == 0) break;
-                    else currentPosition--;
-                    updateSnek();
-                break;
-            case 1: // up
-                    if((currentPosition/nrOfRows >> 0) == 0) break;
-                    else currentPosition = currentPosition - nrOfRows;
-                    updateSnek();
-                break;
-            case 2: // right
-                    if((currentPosition+1)%nrOfColumns == 0) break;
-                    else currentPosition++;
-                    updateSnek();
-                break;
-            case 3: // down
-                    if((currentPosition/nrOfRows >> 0) == nrOfRows-1) break;
-                    else currentPosition = currentPosition + nrOfRows;
-                    updateSnek();
-                break;
-        }
-    }
 }
 
 function render(){
+    var time = Date.now() * 0.001;
+    terrain.rotation.z = time * 0.5;
     renderer.render(scene, camera);
 }
 
@@ -183,44 +167,16 @@ function animate(){
     render();
 }
 
-function AddFood()
-{
-    var rand = (Math.random() * positions) >> 0;
-    while(snek.includes(rand,0))
-    {
-        rand = (Math.random() * positions) >> 0
-    }
-    board[rand] = -1;
-    bricks[rand].material = terrainMaterial1;
-}
-
 function OnKeyIsDown(key)
 {
     switch(key.keyCode)
-    { 
-        case 37:
-                if(currentPosition%nrOfColumns == 0) break;
-                else currentPosition--;
-                currentdirection = 0;
-                updateSnek();
+    {
+        case 32: // space
+            regenerateTerrain();
             break;
-        case 38:
-                if((currentPosition/nrOfRows >> 0) == 0) break;
-                else currentPosition = currentPosition - nrOfRows;
-                currentdirection = 1;
-                updateSnek();
-            break;
-        case 39:
-                if((currentPosition+1)%nrOfColumns == 0) break;
-                else currentPosition++;
-                currentdirection = 2;
-                updateSnek();
-            break;
-        case 40:
-                if((currentPosition/nrOfRows >> 0) == nrOfRows-1) break;
-                else currentPosition = currentPosition + nrOfRows;
-                currentdirection = 3;
-                updateSnek();
+        case 67: // c
+            bioColors = !bioColors;
+            regenerateTerrain();
             break;
         default:
             break;
